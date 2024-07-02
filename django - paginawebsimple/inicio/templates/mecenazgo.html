@@ -1,0 +1,29 @@
+{% extends 'extendible.html' %}
+{% block title %}
+Apoyo a la página
+{% endblock %}
+ 
+{% block content %}
+	<h3>Esta sección es solo una prueba de concepto (añadir a la base de datos)</h3>
+		<br><br>
+	<p>Regístrate para aparecer en la sección de mecenas.</p>
+	<br>
+	
+	<form method="post" action="{% url 'mecenazgo' %}">
+		{% csrf_token %}
+		<div>
+			<label for="mote">Mote:</label>
+			<input type="text" name="mote" id="mote" required>
+		</div>
+		<div>
+			<label for="desc">Algo sobre ti:</label>
+			<input type="text" name="desc" id="desc" required>
+		</div>
+		<div>
+			<label for="mayorDeEdad">Mayor de Edad:</label>
+			<input type="checkbox" name="mayorDeEdad" id="mayorDeEdad" value="True">
+		</div>
+		<button type="submit">Añadir fan de la Grecia antigua</button>
+	</form>
+	
+{% endblock %}

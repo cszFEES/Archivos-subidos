@@ -1,0 +1,40 @@
+<html>
+<head>
+    <title>{% block title %}extendible{% endblock %}</title>
+</head>
+
+<style type="text/css">
+    .barraLateral {
+        height:100%;
+        width:160px;
+        position: fixed;
+        z-index:1;
+        top:0;
+        right:0; 
+        background-color:#111;
+        overflow-x: :hidden;
+        padding-top:20px;
+    }
+    .barraLateral a {padding:6px 8px 6px 16px; text-decoration: none; font-size:25px; color: #818181; display:block;    }
+    .barraLateral a:hover{color:#f1f1f1;}	
+    .main{margin-right:160px; padding: 0px 10px; }
+
+</style>
+
+<body>
+        <div class="barraLateral">
+            <a href="/">Home</a>
+            <a href="/mecenas">Mecenas</a>
+            <a href="/mecenazgo">Mecenazgo</a>
+        </div>
+	{% block content %}
+	{% endblock %}
+    </div>
+
+</body>
+
+<script>
+//Prefiero Jquery, pero esta es la alternativa para django
+</script>
+
+</html>

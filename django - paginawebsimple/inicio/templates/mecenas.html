@@ -1,0 +1,16 @@
+{% extends "extendible.html" %}
+
+{% block title %}Fans de la Grecia antigua registrados{% endblock %}
+
+{% block content %}
+	<h1>Agradecimientos a nuestros patrocinadores:</h1>
+	<ul>
+	{% for item in Perfiles %}
+		{% if item.mayorDeEdad == True %}
+			<li>{{item.mote}} - es un espartano preparado para el combate</li>
+		{% else %}
+			<li>{{item.mote}} - es un espartano en entrenamiento</li>
+		{% endif %}
+	{% endfor %}
+	</ul>
+{% endblock %}
