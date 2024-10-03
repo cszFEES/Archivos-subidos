@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
-class CustomImageDataset(Dataset):
+class sacarImagenesDesdeCarpetas(Dataset):
     def __init__(self, carpeta_raiz, transform=None):
         self.carpeta_raiz = carpeta_raiz
         self.transform = transform
@@ -15,27 +15,25 @@ class CustomImageDataset(Dataset):
         return len(self.imagenes)
     def __getitem__(self, idx):
         img_path = os.path.join(self.carpeta_raiz, self.classes[idx], self.imagenes[idx])
-        image = Image.open(img_path).convert('L')
+        image = Image.open(img_path).convert('L')  #single channel (luminance) image
         image = self.transform(image)
         label = self.class_to_idx[idx]
         return image, label
 
 transformaciones = transforms.Compose([
     transforms.Resize((150, 150)),
-    transforms.Grayscale(num_output_channels=1),  # Convert to grayscale
+    transforms.Grayscale(num_output_channels=1),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5], std=[0.2])
 ])
-dataset = CustomImageDataset(carpeta_raiz='/home/USER/Escritorio/DP', transform=transformaciones)
+dataset = sacarImagenesDesdeCarpetas(carpeta_raiz='/home/USER/Escritorio/DP', transform=transformaciones)
 dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 
-import torch 
-from torch import nn, save, load
+from torch import nn
 import torch.nn.functional as F
-from torchvision.transforms import ToTensor
 
-class ImageClassifier(nn.Module):
+class modeloR(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=4, kernel_size=3, stride=1, padding=1)
@@ -66,23 +64,23 @@ class ImageClassifier(nn.Module):
         return x
 
     
-clasificador = ImageClassifier()
+clasificador = modeloR()
 loss_fn = nn.CrossEntropyLoss()
 optimizar = torch.optim.SGD(clasificador.parameters())
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     for epoch in range(10):
         for batch in dataloader:
             imgsEntrantes, labels = batch
             imgsConvolucionadas = clasificador(imgsEntrantes)
             loss = loss_fn(imgsConvolucionadas, labels)
-            optimizar.zero_grad() # Backprop 
+            optimizar.zero_grad() # Backpropagation
             loss.backward()
             optimizar.step()
         print(f"Epoch:{epoch} loss is {loss.item()}")
     
-    torch.save(clasificador.state_dict(), 'modelo.pth')
+    torch.save(clasificador.state_dict(), 'modeloManga.pt')
 
-    img = Image.open('0.jpg') 
-    img_tensor = ToTensor()(img).unsqueeze(0)
+    img = Image.open('0.jpg')
+    img_tensor = transforms.ToTensor()(img).unsqueeze(0)
     print(torch.argmax(clasificador(img_tensor)))
