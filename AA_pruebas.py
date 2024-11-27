@@ -1,7 +1,7 @@
 #prueba 1
 try:
     NUMERO = float(input("LEER NUMERO\n"))
-    while int(NUMERO) >= 2:
+    while int(NUMERO) > 2:
         NUMERO -= 2
         print(int(NUMERO))
 except:
