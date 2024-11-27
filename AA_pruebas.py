@@ -1,15 +1,15 @@
 #prueba 1
 try:
     NUMERO = float(input("LEER NUMERO\n"))
-    while int(NUMERO) > 2:
+    while int(NUMERO) >= 2:
         NUMERO -= 2
-        print(NUMERO)
+        print(int(NUMERO))
 except:
    print("Pruebe escribiendo un número")
 
 
 #prueba 2
-if True:
+try:
     class PERSONA():
         def __init__(self, sexo, edad:int):
             self.SEXO = sexo
@@ -24,7 +24,7 @@ if True:
         PERSONAS.append(PERSONA(sexo=sexo,edad=edad))
     print("Porcentaje de personas mayores",len([p for p in PERSONAS if p.EDAD >= 18])/len(PERSONAS)*100,"%")
     print("Porcentaje de mujeres",len([p for p in PERSONAS if p.SEXO == 0])/len(PERSONAS)*100,"%")
-if False:
+except:
     print("Ha introducido un dato erróneo")
     pass
 
