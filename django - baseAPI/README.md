@@ -1,1 +1,1 @@
-Hecho con Django, Graphene y PostgreSQL.
+Backend hecho usando Django, Graphene y PostgreSQL.
