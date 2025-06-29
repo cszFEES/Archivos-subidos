@@ -1,0 +1,7 @@
+django>=5.0
+graphene
+graphene-django>=3.0
+psycopg2-binary>=2.9
+sqlparse>=0.4
+asgiref>=3.8
+tzdata>=2025.1
