@@ -3,11 +3,11 @@ import json
 import os
 from PyQt5.QtWidgets import (QApplication, QWidget, QGridLayout, QPushButton,
                              QLabel, QHBoxLayout, QVBoxLayout, QLineEdit,
-                             QFileDialog, QMessageBox)
+                             QFileDialog, QMessageBox, QSizePolicy) ### CAMBIO: Importar QSizePolicy
 from PyQt5.QtGui import QPixmap, QIcon, QPainter, QPen
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize ### CAMBIO: Importar QSize
 
-TAM_CASILLA = 40
+TAM_CASILLA_MIN = 40 ### CAMBIO: Definir un tamaño mínimo para las casillas
 
 class LabelImagenConGrid(QLabel):
     def __init__(self, parent=None):
@@ -15,36 +15,66 @@ class LabelImagenConGrid(QLabel):
         self.pixmap_original = None
         self.filas = 6
         self.columnas = 6
+        ### CAMBIO: Establecer política de tamaño expansible
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def setPixmap(self, pixmap):
         self.pixmap_original = pixmap
-        super().setPixmap(pixmap)
+        self.resizeEvent(None) # Reescalar inmediatamente al cargar
+    
+    def get_scaled_pixmap(self):
+        """Retorna el pixmap reescalado al tamaño actual del label."""
+        if self.pixmap_original is None:
+            return None
+        return self.pixmap_original.scaled(
+            self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
 
     def paintEvent(self, event):
-        super().paintEvent(event)
-        if not self.pixmap_original:
+        ### CAMBIO: Usar el pixmap escalado en lugar del original
+        pixmap_escalado = self.get_scaled_pixmap()
+        if not pixmap_escalado:
+            super().paintEvent(event)
             return
-
+        
+        # Centrar el pixmap escalado
+        w_esc = pixmap_escalado.width()
+        h_esc = pixmap_escalado.height()
+        offset_x = (self.width() - w_esc) // 2
+        offset_y = (self.height() - h_esc) // 2
+        
         painter = QPainter(self)
+        painter.drawPixmap(offset_x, offset_y, pixmap_escalado)
+        
         pen = QPen(Qt.red)
         pen.setWidth(1)
         painter.setPen(pen)
 
-        w = self.pixmap().width()
-        h = self.pixmap().height()
+        # Dibujar la cuadrícula sobre el pixmap escalado
+        w = w_esc
+        h = h_esc
+        
+        if self.columnas > 0 and self.filas > 0:
+            ancho_celda = w / self.columnas
+            alto_celda = h / self.filas
+        
+            for c in range(self.columnas + 1):
+                x = offset_x + int(c * ancho_celda)
+                painter.drawLine(x, offset_y, x, offset_y + h)
+            for f in range(self.filas + 1):
+                y = offset_y + int(f * alto_celda)
+                painter.drawLine(offset_x, y, offset_x + w, y)
 
-        offset_x = 0
-        offset_y = 0
-
-        ancho_celda = w / self.columnas
-        alto_celda = h / self.filas
-
-        for c in range(self.columnas + 1):
-            x = offset_x + int(c * ancho_celda)
-            painter.drawLine(x, offset_y, x, offset_y + h)
-        for f in range(self.filas + 1):
-            y = offset_y + int(f * alto_celda)
-            painter.drawLine(offset_x, y, offset_x + w, y)
+    def resizeEvent(self, event):
+        """Reimplementar para actualizar la visualización de la imagen al reescalar."""
+        if self.pixmap_original:
+            pixmap_escalado = self.get_scaled_pixmap()
+            if pixmap_escalado:
+                super().setPixmap(pixmap_escalado)
+                # Forzar repintado para dibujar el grid en la nueva posición/tamaño
+                self.update() 
+        else:
+            super().resizeEvent(event)
 
 class EditorDeMosaicos(QWidget):
     def __init__(self, filas=5, columnas=5):
@@ -66,6 +96,7 @@ class EditorDeMosaicos(QWidget):
 
     def iniciarUI(self):
         self.setWindowTitle("Editor de Mosaicos")
+        self.setMinimumSize(400, 300) ### CAMBIO: Establecer un tamaño mínimo
 
         layout_principal = QHBoxLayout()
 
@@ -79,15 +110,23 @@ class EditorDeMosaicos(QWidget):
             fila_casillas = []
             for c in range(self.columnas):
                 boton = QPushButton("")
-                boton.setFixedSize(TAM_CASILLA, TAM_CASILLA)
+                ### CAMBIO: Usar un tamaño mínimo y política de expansión
+                boton.setMinimumSize(TAM_CASILLA_MIN, TAM_CASILLA_MIN)
+                boton.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
                 boton.setStyleSheet("margin: 0px; padding: 0px;")
                 boton.clicked.connect(self.clicCasilla)
                 self.grid.addWidget(boton, f, c)
                 fila_casillas.append(boton)
             self.casillas.append(fila_casillas)
-        layout_principal.addLayout(self.grid)
+        
+        ### CAMBIO: Envolver el grid en un widget para controlar su expansión
+        grid_widget = QWidget()
+        grid_widget.setLayout(self.grid)
+        grid_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout_principal.addWidget(grid_widget)
 
         layout_derecha = QVBoxLayout()
+        ### CAMBIO: Fijar el tamaño del layout derecho (o usar QSizePolicy.Fixed/Preferred) para que no se estire demasiado, o simplemente no darle la política Expanding.
 
         layout_2columnas = QGridLayout()
         layout_2columnas.addWidget(QLabel("Filas casillas:"), 0, 0)
@@ -127,9 +166,10 @@ class EditorDeMosaicos(QWidget):
         layout_derecha.addWidget(boton_cargar)
 
         self.label_imagen = LabelImagenConGrid()
-        self.label_imagen.setFixedSize(TAM_CASILLA*6, TAM_CASILLA*6)
+        ### CAMBIO: Eliminar setFixedSize y usar setMinimumSize
+        self.label_imagen.setMinimumSize(TAM_CASILLA_MIN*4, TAM_CASILLA_MIN*4) 
         self.label_imagen.setStyleSheet("border: 1px solid black;")
-        self.label_imagen.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.label_imagen.setAlignment(Qt.AlignCenter) ### CAMBIO: Centrar la imagen en el QLabel
         layout_derecha.addWidget(self.label_imagen)
 
         self.label_tamano_grid = QLabel("Tamaño cuadrícula imagen: -")
@@ -157,6 +197,48 @@ class EditorDeMosaicos(QWidget):
         self.label_imagen.mousePressEvent = self.seleccionarParteImagen
 
         self.show()
+        
+    def resizeEvent(self, event):
+        """Reimplementar para reescalar los íconos de las casillas al redimensionar."""
+        super().resizeEvent(event)
+        self.reescalarIconosCasillas()
+
+    def reescalarIconosCasillas(self):
+        """Actualiza el tamaño de los íconos de las casillas según el tamaño actual de los botones."""
+        if not self.pixmap_imagen:
+            return
+        
+        # Asumiendo que todas las casillas tienen el mismo tamaño, usamos la primera para obtener las dimensiones
+        if self.casillas and self.casillas[0]:
+            btn_width = self.casillas[0][0].width()
+            btn_height = self.casillas[0][0].height()
+        else:
+            return
+            
+        filas_img = self.grid_img_filas
+        columnas_img = self.grid_img_columnas
+        
+        ancho_celda_img = int(self.pixmap_imagen.width() / columnas_img)
+        alto_celda_img = int(self.pixmap_imagen.height() / filas_img)
+        
+        for f in range(self.filas):
+            for c in range(self.columnas):
+                val = self.indice_mosaico_casillas[f][c]
+                if val is not None:
+                    # val es (fila_imagen, columna_imagen)
+                    top = val[0] * alto_celda_img
+                    left = val[1] * ancho_celda_img
+                    
+                    seleccionado = self.pixmap_imagen.copy(left, top, ancho_celda_img, alto_celda_img)
+                    
+                    # Reescalar al tamaño actual del botón
+                    pixmap_escalado = seleccionado.scaled(
+                        btn_width, btn_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+                    )
+                    
+                    self.casillas[f][c].setIcon(QIcon(pixmap_escalado))
+                    self.casillas[f][c].setIconSize(pixmap_escalado.size())
+
 
     def aplicarTamanoGrid(self):
         try:
@@ -165,6 +247,7 @@ class EditorDeMosaicos(QWidget):
             if f <= 0 or c <= 0:
                 raise ValueError("El número de filas y columnas debe ser positivo.")
             self.ajustarDimension(f, c)
+            self.reescalarIconosCasillas() ### CAMBIO: Reescalar después de ajustar dimensión
         except Exception as e:
             QMessageBox.warning(self, "Entrada inválida", str(e))
 
@@ -183,23 +266,14 @@ class EditorDeMosaicos(QWidget):
                 ancho_celda = int(self.pixmap_imagen.width() / c)
                 alto_celda = int(self.pixmap_imagen.height() / f)
                 self.label_tamano_grid.setText(f"Tamaño cuadrícula imagen: {ancho_celda} x {alto_celda} px")
+                self.reescalarIconosCasillas() ### CAMBIO: Reescalar los iconos al cambiar el grid de la imagen
         except Exception as e:
             QMessageBox.warning(self, "Entrada inválida", str(e))
 
     def ajustarDimension(self, filas_nuevas, columnas_nuevas):
-        while len(self.casillas) < filas_nuevas:
-            fila_nueva = []
-            f = len(self.casillas)
-            for c in range(self.columnas):
-                btn = QPushButton("")
-                btn.setFixedSize(TAM_CASILLA, TAM_CASILLA)
-                btn.setStyleSheet("margin: 0px; padding: 0px;")
-                btn.clicked.connect(self.clicCasilla)
-                self.grid.addWidget(btn, f, c)
-                fila_nueva.append(btn)
-            self.casillas.append(fila_nueva)
-            self.indice_mosaico_casillas.append([None]*self.columnas)
-
+        # ... (La lógica de agregar/quitar botones es la misma, solo se modificó el tamaño de los botones)
+        
+        # Eliminar filas/columnas existentes
         while len(self.casillas) > filas_nuevas:
             fila_eliminar = self.casillas.pop()
             for btn in fila_eliminar:
@@ -209,34 +283,64 @@ class EditorDeMosaicos(QWidget):
 
         for f in range(len(self.casillas)):
             fila = self.casillas[f]
-            while len(fila) < columnas_nuevas:
-                c = len(fila)
-                btn = QPushButton("")
-                btn.setFixedSize(TAM_CASILLA, TAM_CASILLA)
-                btn.setStyleSheet("margin: 0px; padding: 0px;")
-                btn.clicked.connect(self.clicCasilla)
-                self.grid.addWidget(btn, f, c)
-                fila.append(btn)
-                self.indice_mosaico_casillas[f].append(None)
-
+            # Eliminar columnas
             while len(fila) > columnas_nuevas:
                 btn = fila.pop()
                 self.grid.removeWidget(btn)
                 btn.deleteLater()
                 self.indice_mosaico_casillas[f].pop()
+            # Agregar columnas
+            while len(fila) < columnas_nuevas:
+                c = len(fila)
+                btn = QPushButton("")
+                btn.setMinimumSize(TAM_CASILLA_MIN, TAM_CASILLA_MIN) ### CAMBIO: Mínimo
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) ### CAMBIO: Política
+                btn.setStyleSheet("margin: 0px; padding: 0px;")
+                btn.clicked.connect(self.clicCasilla)
+                self.grid.addWidget(btn, f, c)
+                fila.append(btn)
+                self.indice_mosaico_casillas[f].append(None)
+                
+        # Agregar filas
+        while len(self.casillas) < filas_nuevas:
+            fila_nueva = []
+            f = len(self.casillas)
+            for c in range(columnas_nuevas):
+                btn = QPushButton("")
+                btn.setMinimumSize(TAM_CASILLA_MIN, TAM_CASILLA_MIN) ### CAMBIO: Mínimo
+                btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) ### CAMBIO: Política
+                btn.setStyleSheet("margin: 0px; padding: 0px;")
+                btn.clicked.connect(self.clicCasilla)
+                self.grid.addWidget(btn, f, c)
+                fila_nueva.append(btn)
+            self.casillas.append(fila_nueva)
+            self.indice_mosaico_casillas.append([None]*columnas_nuevas)
+
 
         self.filas = filas_nuevas
         self.columnas = columnas_nuevas
+        
+        # Asegurar que el layout se reajuste
+        self.grid.invalidate()
+        self.adjustSize()
+        self.update()
 
-    def clicCasilla(self):
+
+    def clicCasilla(self, *args): ### CAMBIO: Ignorar argumentos si se usa solo con self.sender()
         boton = self.sender()
         pos = self.obtenerPosicion(boton)
         if not pos:
             return
         f, c = pos
+        
+        # Obtener el tamaño actual del botón
+        btn_width = boton.width()
+        btn_height = boton.height()
+        
         if self.pixmap_seleccionado:
+            ### CAMBIO: Escalar al tamaño actual del botón
             pixmap_ajustada = self.pixmap_seleccionado.scaled(
-                TAM_CASILLA, TAM_CASILLA, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+                btn_width, btn_height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation
             )
             icono = QIcon(pixmap_ajustada)
             boton.setIcon(icono)
@@ -264,45 +368,68 @@ class EditorDeMosaicos(QWidget):
             self.pixmap_imagen = pixmap
             self.ruta_imagen_cargada = ruta
             self.nombre_imagen_cargada = os.path.basename(ruta)
-            pixmap_esc = pixmap.scaled(self.label_imagen.width(), self.label_imagen.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.label_imagen.setPixmap(pixmap_esc)
+            
+            ### CAMBIO: Ya no se escala aquí. LabelImagenConGrid se encarga de reescalar al tamaño de la etiqueta
+            self.label_imagen.setPixmap(pixmap) 
+            
             self.label_imagen.filas = self.grid_img_filas
             self.label_imagen.columnas = self.grid_img_columnas
             self.pixmap_seleccionado = None
             ancho_celda = int(pixmap.width() / self.grid_img_columnas)
             alto_celda = int(pixmap.height() / self.grid_img_filas)
             self.label_tamano_grid.setText(f"Tamaño cuadrícula imagen: {ancho_celda} x {alto_celda} px")
+            self.reescalarIconosCasillas() ### CAMBIO: Reescalar los iconos con la nueva imagen
 
     def seleccionarParteImagen(self, event):
         if not self.pixmap_imagen:
             return
+        
         pos = event.pos()
-        pixmap_actual = self.label_imagen.pixmap()
+        pixmap_actual = self.label_imagen.get_scaled_pixmap() ### CAMBIO: Obtener el pixmap escalado
         if not pixmap_actual:
             return
-        pixmap_size = pixmap_actual.size()
-        x = pos.x()
-        y = pos.y()
-        if x < 0 or y < 0 or x >= pixmap_size.width() or y >= pixmap_size.height():
+            
+        # Calcular los offsets y tamaños del pixmap centrado en el QLabel
+        w_esc = pixmap_actual.width()
+        h_esc = pixmap_actual.height()
+        offset_x = (self.label_imagen.width() - w_esc) // 2
+        offset_y = (self.label_imagen.height() - h_esc) // 2
+            
+        x = pos.x() - offset_x ### CAMBIO: Ajustar la posición al offset del pixmap
+        y = pos.y() - offset_y ### CAMBIO: Ajustar la posición al offset del pixmap
+        
+        # Verificar que el clic esté dentro del área del pixmap escalado
+        if x < 0 or y < 0 or x >= w_esc or y >= h_esc:
+            self.pixmap_seleccionado = None
             return
+
         orig_w = self.pixmap_imagen.width()
         orig_h = self.pixmap_imagen.height()
-        orig_x = int(x * orig_w / pixmap_size.width())
-        orig_y = int(y * orig_h / pixmap_size.height())
+        
+        # Mapear las coordenadas escaladas a las coordenadas originales
+        orig_x = int(x * orig_w / w_esc) 
+        orig_y = int(y * orig_h / h_esc)
+        
         ancho_celda_img = orig_w / self.label_imagen.columnas
         alto_celda_img = orig_h / self.label_imagen.filas
+        
         col_sel = int(orig_x // ancho_celda_img)
         fila_sel = int(orig_y // alto_celda_img)
+        
         left = int(col_sel * ancho_celda_img)
         top = int(fila_sel * alto_celda_img)
+        
+        # Asegurar que los anchos/altos sean enteros para la copia
         ancho_celda = int(ancho_celda_img)
         alto_celda = int(alto_celda_img)
+        
         seleccionado = self.pixmap_imagen.copy(left, top, ancho_celda, alto_celda)
         self.pixmap_seleccionado = seleccionado
         self.sel_fila_imagen = fila_sel
         self.sel_col_imagen = col_sel
 
     def guardarConfiguracion(self):
+        # ... (Sin cambios funcionales en guardar)
         ruta, _ = QFileDialog.getSaveFileName(self, "Guardar configuración JSON", "configuracion_mosaico.json", "Archivos JSON (*.json)")
         if not ruta:
             return
@@ -310,7 +437,7 @@ class EditorDeMosaicos(QWidget):
             data = {
                 "imagen_ruta": self.ruta_imagen_cargada,
                 "imagen_nombre": self.nombre_imagen_cargada,
-                "tam_casilla": TAM_CASILLA,
+                "tam_casilla_min": TAM_CASILLA_MIN, ### CAMBIO: Guardar el tamaño mínimo
                 "grid_imagen": {
                     "filas": self.grid_img_filas,
                     "columnas": self.grid_img_columnas
@@ -330,9 +457,11 @@ class EditorDeMosaicos(QWidget):
         try:
             with open(ruta, "r", encoding='utf-8') as f:
                 data = json.load(f)
+                
             self.ruta_imagen_cargada = data.get("imagen_ruta", "")
             self.nombre_imagen_cargada = data.get("imagen_nombre", "")
-            tam_casilla = data.get("tam_casilla", TAM_CASILLA)
+            # TAM_CASILLA_MIN es global, no es necesario cambiarlo, pero lo cargamos por si acaso
+            # tam_casilla = data.get("tam_casilla_min", TAM_CASILLA_MIN) 
             grid_img = data.get("grid_imagen", {})
             filas_img = grid_img.get("filas", 6)
             columnas_img = grid_img.get("columnas", 6)
@@ -356,15 +485,17 @@ class EditorDeMosaicos(QWidget):
                     self.label_imagen.clear()
                 else:
                     self.pixmap_imagen = pixmap
-                    pixmap_esc = pixmap.scaled(self.label_imagen.width(), self.label_imagen.height(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.label_imagen.setPixmap(pixmap_esc)
+                    ### CAMBIO: setPixmap usa el pixmap original, LabelImagenConGrid lo escala
+                    self.label_imagen.setPixmap(pixmap) 
                     self.label_imagen.filas = filas_img
                     self.label_imagen.columnas = columnas_img
                     self.label_tamano_grid.setText(f"Tamaño cuadrícula imagen: "
-                                                  f"{pixmap.width() // columnas_img} x {pixmap.height() // filas_img} px")
+                                                     f"{pixmap.width() // columnas_img} x {pixmap.height() // filas_img} px")
             else:
                 self.pixmap_imagen = None
                 self.label_imagen.clear()
+                self.label_tamano_grid.setText("Tamaño cuadrícula imagen: -")
+
 
             for f, fila in enumerate(casillas_data):
                 for c, val in enumerate(fila):
@@ -373,18 +504,11 @@ class EditorDeMosaicos(QWidget):
                         self.indice_mosaico_casillas[f][c] = None
                     else:
                         self.indice_mosaico_casillas[f][c] = tuple(val)
-                        if self.pixmap_imagen:
-                            ancho_celda = int(self.pixmap_imagen.width() / columnas_img)
-                            alto_celda = int(self.pixmap_imagen.height() / filas_img)
-                            left = val[1] * ancho_celda
-                            top = val[0] * alto_celda
-                            seleccionado = self.pixmap_imagen.copy(left, top, ancho_celda, alto_celda)
-                            pixmap_escalado = seleccionado.scaled(TAM_CASILLA, TAM_CASILLA, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-                            self.casillas[f][c].setIcon(QIcon(pixmap_escalado))
-                            self.casillas[f][c].setIconSize(pixmap_escalado.size())
-                        else:
-                            self.casillas[f][c].setIcon(QIcon())
-
+                        # El reescalado de los iconos se hará al final de la carga o en el resizeEvent.
+                        
+            # Finalmente, reescalar todos los íconos de las casillas cargados
+            self.reescalarIconosCasillas()
+            
             self.label_ruta_guardado.setText(f"Cargado de: {ruta}")
         except Exception as e:
             QMessageBox.warning(self, "Error", f"No se pudo cargar la configuración: {e}")
